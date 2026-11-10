@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070a12">
+  <meta name="description" content="Трансляция камеры старого телефона на ПК или второй телефон через WebRTC. Без установки приложений.">
+  <title>FPV-камера — трансляция с телефона</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23070a12'/%3E%3Crect x='12' y='22' width='30' height='24' rx='6' fill='%2322d3ee'/%3E%3Cpath d='M46 28l10-6v20l-10-6z' fill='%23a78bfa'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <main id="app">
+    <!-- ================= ГЛАВНАЯ ================= -->
+    <section id="view-landing" class="view landing">
+      <div class="landing-inner">
+        <header class="hero">
+          <span class="badge">WebRTC · без установки приложений</span>
+          <h1>FPV-камера</h1>
+          <p class="hero-sub">
+            Старый телефон — камера на машинке. Второй телефон или ПК — экран.
+            Видео идёт напрямую между устройствами, без сервера и записи.
+          </p>
+        </header>
+
+        <div class="role-grid">
+          <article class="role-card">
+            <div class="role-icon" aria-hidden="true">📷</div>
+            <h2>Телефон-камера</h2>
+            <p>Транслирует камеру. Закрепите телефон на машинке и откройте эту страницу.</p>
+            <button id="btn-role-cam" class="btn btn-primary btn-lg" type="button">Я камера</button>
+            <p class="hint">Нужно разрешить доступ к камере. Экран телефона будет оставаться включённым.</p>
+          </article>
+
+          <article class="role-card">
+            <div class="role-icon" aria-hidden="true">🖥️</div>
+            <h2>Экран</h2>
+            <p>Смотрите трансляцию на ПК или втором телефоне в полный экран.</p>
+            <label class="field-label" for="landing-room">Код комнаты</label>
+            <div class="room-row">
+              <input id="landing-room" class="room-input" maxlength="5" autocomplete="off"
+                     spellcheck="false" placeholder="ABCDE" aria-label="Код комнаты">
+              <button id="btn-role-viewer" class="btn btn-primary" type="button">Смотреть</button>
+            </div>
+            <p class="hint">Код из 5 символов показан на телефоне-камере.</p>
+          </article>
+        </div>
+
+        <div class="features">
+          <div class="feature">
+            <span aria-hidden="true">⚡</span>
+            <div><b>Низкая задержка</b><p>В одной Wi-Fi сети — обычно 100–300 мс.</p></div>
+          </div>
+          <div class="feature">
+            <span aria-hidden="true">🔒</span>
+            <div><b>Напрямую</b><p>Видео не проходит через сервер и не записывается.</p></div>
+          </div>
+          <div class="feature">
+            <span aria-hidden="true">📱</span>
+            <div><b>Любое устройство</b><p>Телефон, планшет или ПК — достаточно браузера.</p></div>
+          </div>
+        </div>
+
+        <p class="landing-note">
+          Для камеры нужен HTTPS — GitHub Pages подходит. Интернет нужен только для
+          «рукопожатия» устройств; само видео идёт напрямую.
+          Машинкой управляйте штатным пультом, глядя на экран.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= КАМЕРА ================= -->
+    <section id="view-camera" class="view camera" hidden>
+      <div class="page-head">
+        <button id="cam-exit" class="icon-btn" type="button" title="На главную" aria-label="На главную">←</button>
+        <div class="page-title">
+          <span class="eyebrow">Режим камеры</span>
+          <span class="room-line">Комната <b id="cam-room">—</b></span>
+        </div>
+        <span id="cam-status" class="status-pill" data-state="idle">
+          <i aria-hidden="true"></i><span id="cam-status-text">Подключение…</span>
+        </span>
+      </div>
+
+      <div class="cam-layout">
+        <div class="cam-main">
+          <div class="cam-preview-wrap">
+            <video id="cam-preview" autoplay playsinline muted></video>
+            <div id="cam-placeholder" class="cam-placeholder">
+              <span class="cam-placeholder-icon" aria-hidden="true">📷</span>
+              <b>Камера выключена</b>
+              <span>Нажмите «Начать трансляцию»</span>
+            </div>
+          </div>
+
+          <div class="cam-actions">
+            <button id="cam-start" class="btn btn-primary btn-xl" type="button">Начать трансляцию</button>
+            <button id="cam-stop" class="btn btn-danger btn-xl" type="button" hidden>Остановить</button>
+            <div id="cam-stats" class="cam-stats" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <aside class="cam-side">
+          <section class="panel">
+            <h3>Камера</h3>
+            <label class="field">
+              <span>Качество</span>
+              <select id="cam-quality">
+                <option value="360p20">360p · 20 fps (слабый телефон)</option>
+                <option value="480p24" selected>480p · 24 fps (рекомендуется)</option>
+                <option value="720p24">720p · 24 fps</option>
+                <option value="720p30">720p · 30 fps (мощный телефон)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Объектив</span>
+              <select id="cam-facing">
+                <option value="environment" selected>Задняя камера</option>
+                <option value="user">Передняя камера</option>
+              </select>
+            </label>
+            <label class="switch">
+              <input id="cam-mic" type="checkbox">
+              <span>Передавать звук с микрофона</span>
+            </label>
+            <p class="micro">Смена настроек во время эфира перезапускает видео.</p>
+          </section>
+
+          <section class="panel">
+            <h3>Подключение экрана</h3>
+            <div id="cam-room-big" class="room-big">—</div>
+            <p class="micro">Введите этот код на ПК или втором телефоне в режиме «Экран».</p>
+            <div class="copy-row">
+              <input id="cam-link" readonly aria-label="Ссылка для просмотра">
+              <button id="cam-copy" class="btn btn-ghost" type="button">Копировать</button>
+            </div>
+            <details class="qr-details">
+              <summary>Показать QR-код</summary>
+              <img id="cam-qr" class="qr" alt="QR-код со ссылкой на просмотр" hidden>
+            </details>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= ЭКРАН ================= -->
+    <section id="view-viewer" class="view viewer" hidden>
+      <div class="viewer-head">
+        <div class="viewer-head-left">
+          <span class="room-line">Комната <b id="viewer-room">—</b></span>
+          <span id="viewer-link-state" class="status-pill small" data-state="off">
+            <i aria-hidden="true"></i><span id="viewer-link-text">нет связи</span>
+          </span>
+        </div>
+        <button id="viewer-exit" class="icon-btn" type="button" title="Выйти" aria-label="Выйти">✕</button>
+      </div>
+
+      <div id="viewer-stage" class="viewer-stage">
+        <video id="viewer-video" autoplay playsinline muted></video>
+
+        <div id="viewer-waiting" class="stage-overlay">
+          <div id="viewer-wait-spinner" class="spinner" aria-hidden="true"></div>
+          <h2 id="viewer-wait-title">Подключаемся…</h2>
+          <p id="viewer-wait-text">Ищем камеру.</p>
+          <button id="viewer-retry" class="btn btn-primary" type="button" hidden>Переподключиться</button>
+        </div>
+
+        <div class="stage-hud">
+          <span id="hud-res" class="hud-chip">—</span>
+          <span id="hud-fps" class="hud-chip">—</span>
+          <span id="hud-bitrate" class="hud-chip">—</span>
+        </div>
+
+        <div class="stage-actions">
+          <button id="viewer-sound" class="icon-btn glass" type="button" title="Звук" aria-label="Звук" hidden>🔇</button>
+          <button id="viewer-fullscreen" class="icon-btn glass" type="button" title="На весь экран" aria-label="На весь экран">⛶</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <noscript>
+    <div class="fatal">Для работы сайта нужен JavaScript.</div>
+  </noscript>
+</body>
+</html>
